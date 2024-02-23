@@ -2,6 +2,9 @@ library(tidyverse)
 
 
 df = read.csv("movie_conversation.csv")
+df.reddit = read.csv("reddit_posts_progressive.csv")
+df.reddit
+df.reddit = df.reddit %>% filter(Text == ",")
 
 df = df %>% rename(ID = X)
 
