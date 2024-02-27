@@ -10,6 +10,8 @@ number_of_movies = df.movie_conversation %>% select(Movie.Title) %>% unique() %>
 corpus <- corpus(df.movie_conversation$Text)
 text_lengths <- nchar(corpus)
 df.movie_conversation <- df.movie_conversation[text_lengths >= threshold, ] # Filter out rows with text length below the threshold
+#df.movie_conversation = df.movie_conversation %>% select(-X, -X.1)
+#df.movie_conversation <- df.movie_conversation %>% mutate(ID = row_number())
 #write.csv(df.movie_conversation, "data/movie_conversation.csv")
 
 df.movie_conversation.releases_per_year = df.movie_conversation %>% group_by(Release.Year) %>% summarise(num_releases = length(unique(Movie.Title)))
