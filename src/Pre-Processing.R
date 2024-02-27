@@ -1,7 +1,15 @@
 library(tidyverse)
+library(dplyr)
 
-filename = "reddit_posts_progressive.csv"
-#link = str_c("data/", filename)
-df = read.csv(filename)
-df = df %>% rename(ID = X)
+filename = "feminism.csv"
+link = str_c("data/reddit_", filename)
+
+df = read.csv(link)
+df = df %>% select(-X)
+
+# Remove deleted columns
+df <- df %>% mutate(Text = gsub("\\[deleted\\], ", "", Text))
+df = df %>% filter(Text != "")
+df = df %>% filter(Text != ", ")
+
 write.csv(df, filename)
