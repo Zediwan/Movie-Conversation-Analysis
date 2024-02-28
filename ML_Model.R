@@ -58,6 +58,30 @@ tolerance <- rbind(progressive_tweet_sentiment, neutral_reddits,
                    intolerant_reddits, r.concatenated,
                    hate_speech)
 
+# Define the function to balance the data by tolerance category
+balance_data <- function(data) {
+  categories <- unique(data$tolerance)
+  category_sizes <- table(data$tolerance)
+  min_rows <- min(category_sizes)
+  
+  balanced_data <- data.frame()
+  
+  for (category in categories) {
+    category_data <- subset(data, tolerance == category)
+    sampled_rows <- category_data[sample(1:nrow(category_data), min_rows), ]
+    balanced_data <- rbind(balanced_data, sampled_rows)
+  }
+  
+  return(balanced_data)
+}
+
+# Balance the data by tolerance category
+tolerance <- balance_data(tolerance)
+
+# Shuffle the rows to ensure randomness
+tolerance <- tolerance_balanced[sample(nrow(tolerance_balanced)), ]
+
+
 ###########################################################################
 
 #ML-Model
