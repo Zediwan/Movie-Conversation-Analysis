@@ -16,10 +16,14 @@ progressive_tweet_sentiment <- progressive_tweet_sentiment %>%
   select(tolerance, text) 
 
 
-reddit_posts_progressive_small <- read.csv("data/reddit_posts_progressive_small.csv")
-reddit_posts_progressive_small <- reddit_posts_progressive_small %>% 
-  mutate(text = Text, tolerance = "tolerant") %>% 
-  select(text, tolerance)
+r.askFeminist = read.csv("data/reddit_askFeminism.csv")
+r.climate = read.csv("data/reddit_climate.csv")
+r.climateChange = read.csv("data/reddit_climateOffensive.csv")
+r.disability = read.csv("data/reddit_disability.csv")
+r.ecology = read.csv("data/reddit_ecology.csv")
+r.feminism = read.csv("data/reddit_feminism.csv")
+r.concatenated = rbind(r.askFeminist, r.climate, r.climateChange, r.disability, r.ecology, r.feminism)
+r.concatenated = r.concatenated %>% mutate(text = Text, tolerance = "tolerant") %>% select(text, tolerance)
 
 
 #Data Preperation for tolerance = neutral (slur _language.csv indlucds neutral topics)
@@ -48,7 +52,7 @@ hate_speech <- hate_speech %>%
 
 #Glueing the three categories togheter
 tolerance <- rbind(progressive_tweet_sentiment, neutral_reddits,
-                   intolerant_reddits, reddit_posts_progressive_small,
+                   intolerant_reddits, r.concatenated,
                    hate_speech)
 
 ###########################################################################
