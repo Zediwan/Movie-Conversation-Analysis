@@ -1,10 +1,13 @@
 library(tidyverse)
 library(quanteda.textmodels)
+library(quanteda.textstats)
 library(MLmetrics)
 library(htmltools)
 library(quanteda)
 library(quanteda.corpora)
 library(caret)
+library(plotly)
+library(Rcpp)
 
 
 #Data preperation for tolerance = tolerant
@@ -65,6 +68,8 @@ docvars(corpus) %>% as.data.frame() %>% group_by(tolerance) %>% summarize(n=n())
 dfm <- dfm(corpus, stem = T, remove = stopwords("en"), remove_punct=T,
            remove_symbols = T, remove_numbers = T)
 
+textplot_wordcloud(dfm)
+
 total_sample_size = nrow(tolerance)
 set.seed(300) #Makes our results replicable
 id_train <- sample(1:total_sample_size, total_sample_size * 0.8,
@@ -84,12 +89,15 @@ ndoc(dfm_test)
 review_model <- textmodel_nb(dfm_train, dfm_train$tolerance)
 summary(review_model)
 
+#make predictions on the test set
 prediction <- predict(review_model,dfm_test)
 dfm_correct <- dfm_match(dfm_test, features = featnames(dfm_train))
 correct <- dfm_correct$tolerance
 tab_class <- table(correct, prediction)
 tab_class
 confusionMatrix(tab_class, mode = "prec_recall")
+
+
 
 
 
