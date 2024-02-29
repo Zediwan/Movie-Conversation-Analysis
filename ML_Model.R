@@ -9,6 +9,7 @@ library(caret)
 library(plotly)
 library(Rcpp)
 
+#!!NOTE: uncoment row 135 when running the first time!!
 
 #Data preperation for tolerance = tolerant
 progressive_tweet_sentiment <- read.csv("data/progressive-tweet-sentiment.csv")
@@ -34,7 +35,7 @@ slur_languagexlsx<- read.csv("data/slur_languagexlsx.csv")
 
 neutral_reddits <- slur_languagexlsx %>% 
   filter(annotation_Primary == "Neutral" & meta_text != "" ) %>% 
-  mutate(tolerance = " neutral",text = meta_text) %>% 
+  mutate(tolerance = "neutral",text = meta_text) %>% 
   select(tolerance, text)
 
 #Data Preperation tolerant = intoleran
@@ -78,8 +79,12 @@ balance_data <- function(data) {
 # Balance the data by tolerance category
 tolerance <- balance_data(tolerance)
 
-# Shuffle the rows to ensure randomness
-tolerance <- tolerance_balanced[sample(nrow(tolerance_balanced)), ]
+tolerance %>%
+  group_by(tolerance) %>%
+  summarise(count = n())
+
+# Shuffle the rows to ensure randomness @Jeremy there is an error on this line and I dont know what its for
+#tolerance <- tolerance_balanced[sample(nrow(tolerance_balanced)), ]
 
 
 ###########################################################################
@@ -120,41 +125,56 @@ tab_class
 confusionMatrix(tab_class, mode = "prec_recall")
 
 ########################################################################
-#use model on the movie dataset
+#use model on the labeled movie dataset
 
 #preparing the movie dataset
 labeled_movie <- read.csv("data/movie_conversation_with_labels.csv")
-unlabeled_movie <- read.csv("data/movie_conversation_without_labels.csv")
 
+#run the rename row if you use it the first time
 labeled_movie <- labeled_movie %>% 
   #rename(text = Text, tolerance = Tolerance) %>% 
   select(tolerance, text)
 
-unlabeled_movie <- unlabeled_movie %>% 
-  rename(text = Text)
 
-prediction_movie_test <- predict(review_model, labeled_movie)
-dfm_correct_movie <- dfm_match(labeled_movie, features = featnames(dfm_train))
+#Preparing df for labeled movies
+corpus_labeled_movie <- corpus(labeled_movie)
+docvars(corpus_labeled_movie) %>% as.data.frame() %>% group_by(tolerance) %>% summarize(n=n())
+
+dfm_labeled_movie <- dfm(corpus_labeled_movie, stem = T, remove = stopwords("en"), remove_punct=T,
+          remove_symbols = T, remove_numbers = T) %>% 
+          dfm_match(featnames(dfm_train))
+
+
+#make predictions on the labeled movie data set
+prediction_movie_test <- predict(review_model, dfm_labeled_movie)
+
+dfm_correct_movie <- dfm_match(dfm_labeled_movie, features = featnames(dfm_train))
 correct_movie <- dfm_correct_movie$tolerance
-tabl_class_movie <- table(movie_correct, prediction_movie_test)
+
+tabl_class_movie <- table(correct_movie, prediction_movie_test)
 tabl_class_movie
+
 confusionMatrix(tabl_class_movie, mode = "prec_recall")
 
+##################################################################
+#Use Model on the unlabeled movie dataset
+
+unlabeled_movie <- read.csv("data/movie_conversation_without_labels.csv")
+
+unlabeled_movie <- unlabeled_movie %>% 
+  rename(text = Text) %>% 
+  select(text)
 
 
+#Preparing df for unlabeled movies
+corpus_unlabeled_movie <- corpus(unlabeled_movie)
 
+dfm_unlabeled_movie <- dfm(corpus_unlabeled_movie, stem = T, remove = stopwords("en"), remove_punct=T,
+                        remove_symbols = T, remove_numbers = T) %>% 
+                        dfm_match(featnames(dfm_train))
 
+predictions_unlabeled_movie <- predict(review_model, newdata = dfm_unlabeled_movie)
 
-
-
-
-
-
-
-
-
-
-
-
+unlabeled_movie$predicted_label <- predictions_unlabeled_movie
 
 
