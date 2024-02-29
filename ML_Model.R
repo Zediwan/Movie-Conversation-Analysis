@@ -68,8 +68,6 @@ docvars(corpus) %>% as.data.frame() %>% group_by(tolerance) %>% summarize(n=n())
 dfm <- dfm(corpus, stem = T, remove = stopwords("en"), remove_punct=T,
            remove_symbols = T, remove_numbers = T)
 
-textplot_wordcloud(dfm)
-
 total_sample_size = nrow(tolerance)
 set.seed(300) #Makes our results replicable
 id_train <- sample(1:total_sample_size, total_sample_size * 0.8,
@@ -96,6 +94,31 @@ correct <- dfm_correct$tolerance
 tab_class <- table(correct, prediction)
 tab_class
 confusionMatrix(tab_class, mode = "prec_recall")
+
+########################################################################
+#use model on the movie dataset
+
+#preparing the movie dataset
+labeled_movie <- read.csv("data/movie_conversation_with_labels.csv")
+unlabeled_movie <- read.csv("data/movie_conversation_without_labels.csv")
+
+labeled_movie <- labeled_movie %>% 
+  #rename(text = Text, tolerance = Tolerance) %>% 
+  select(tolerance, text)
+
+unlabeled_movie <- unlabeled_movie %>% 
+  rename(text = Text)
+
+prediction_movie_test <- predict(review_model, labeled_movie)
+dfm_correct_movie <- dfm_match(labeled_movie, features = featnames(dfm_train))
+correct_movie <- dfm_correct_movie$tolerance
+tabl_class_movie <- table(movie_correct, prediction_movie_test)
+tabl_class_movie
+confusionMatrix(tabl_class_movie, mode = "prec_recall")
+
+
+
+
 
 
 
