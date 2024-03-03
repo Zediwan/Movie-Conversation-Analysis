@@ -54,7 +54,7 @@ hate_speech <- hate_speech %>%
 
 #Glueing the three categories togheter
 tolerance <- rbind(progressive_tweet_sentiment, neutral_reddits,
-                   intolerant_reddits, r.concatenated,
+                   intolerant_reddits,
                    hate_speech)
 
 # Define the function to balance the data by tolerance category
@@ -82,7 +82,7 @@ tolerance %>%
   summarise(count = n())
 
 # Shuffle the rows to ensure randomness @Jeremy there is an error on this line and I dont know what its for
-tolerance <- tolerance[sample(nrow(tolerance_balanced)), ]
+#tolerance <- tolerance[sample(nrow(tolerance_balanced)), ]
 
 
 ###########################################################################
@@ -126,7 +126,7 @@ confusionMatrix(tab_class, mode = "prec_recall")
 #use model on the labeled movie dataset
 
 #preparing the movie dataset
-labeled_movie <- read.csv("data/movie_conversation_with_labels.csv") %>% rename(text = Text, tolerance = Tolerance)
+labeled_movie <- read.csv("data/movie_conversation_with_labels.csv" )%>% rename(text = Text, tolerance = X.1) %>% select(-X)
 
 #Preparing df for labeled movies
 corpus_labeled_movie <- corpus(labeled_movie)
@@ -151,7 +151,7 @@ confusionMatrix(tabl_class_movie, mode = "prec_recall")
 ##################################################################
 #Use Model on the unlabeled movie dataset
 
-unlabeled_movie <- read.csv("data/movie_conversation_without_labels.csv") %>% rename(text = Text) %>% select(-X.1, -X)
+unlabeled_movie <- read.csv("data/movie_conversation_without_labels.csv") %>% rename(text = Text) %>% select(-X, -X.1, -X.2, -X.3)
 
 #Preparing df for unlabeled movies
 corpus_unlabeled_movie <- corpus(unlabeled_movie)
