@@ -9,8 +9,6 @@ library(caret)
 library(plotly)
 library(Rcpp)
 
-#!!NOTE: uncoment row 135 when running the first time!!
-
 #Data preperation for tolerance = tolerant
 progressive_tweet_sentiment <- read.csv("data/progressive-tweet-sentiment.csv")
 progressive_tweet_sentiment <- progressive_tweet_sentiment %>% 
@@ -84,7 +82,7 @@ tolerance %>%
   summarise(count = n())
 
 # Shuffle the rows to ensure randomness @Jeremy there is an error on this line and I dont know what its for
-#tolerance <- tolerance_balanced[sample(nrow(tolerance_balanced)), ]
+tolerance <- tolerance[sample(nrow(tolerance_balanced)), ]
 
 
 ###########################################################################
@@ -128,13 +126,7 @@ confusionMatrix(tab_class, mode = "prec_recall")
 #use model on the labeled movie dataset
 
 #preparing the movie dataset
-labeled_movie <- read.csv("data/movie_conversation_with_labels.csv")
-
-#run the rename row if you use it the first time
-labeled_movie <- labeled_movie %>% 
-  #rename(text = Text, tolerance = Tolerance) %>% 
-  select(tolerance, text)
-
+labeled_movie <- read.csv("data/movie_conversation_with_labels.csv") %>% rename(text = Text, tolerance = Tolerance)
 
 #Preparing df for labeled movies
 corpus_labeled_movie <- corpus(labeled_movie)
@@ -159,12 +151,7 @@ confusionMatrix(tabl_class_movie, mode = "prec_recall")
 ##################################################################
 #Use Model on the unlabeled movie dataset
 
-unlabeled_movie <- read.csv("data/movie_conversation_without_labels.csv")
-
-unlabeled_movie <- unlabeled_movie %>% 
-  rename(text = Text) %>% 
-  select(text)
-
+unlabeled_movie <- read.csv("data/movie_conversation_without_labels.csv") %>% rename(text = Text) %>% select(-X.1, -X)
 
 #Preparing df for unlabeled movies
 corpus_unlabeled_movie <- corpus(unlabeled_movie)
