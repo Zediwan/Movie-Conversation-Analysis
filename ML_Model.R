@@ -105,7 +105,7 @@ movies_summary <- movies %>%
   summarise(num_convs = n(),
             num_formal = sum(formality == "formal"),
             num_informal = sum(formality == "informal"),
-            score = ((num_formal + 1) / (num_informal + 1))) %>%
+            score = num_formal / num_convs) %>%
   filter(num_convs >= 20)
   
 # Extract the decade from the year
@@ -115,15 +115,17 @@ movies_summary$Decade <- as.numeric(substr(movies_summary$Release.Year, 1, 3)) *
 movies_summary$Decade_Group <- paste(movies_summary$Decade, "-", movies_summary$Decade + 9)
 
 year_summary = movies_summary %>% group_by(Release.Year) %>% 
-  summarise(num_movies = n(), median_score = median(score, na.rm = T))
+  summarise(num_movies = n(), median_score = median(score, na.rm = T)) %>%
+  filter(num_movies > 20)
 
 decade_summary = movies_summary %>% group_by(Decade_Group) %>% 
-  summarise(num_movies = n(), median_score = median(score, na.rm = T))
+  summarise(num_movies = n(), median_score = median(score, na.rm = T)) %>%
+  filter(num_movies > 20)
 
-year_summary %>% ggplot(aes(x = Release.Year, y = avg_score)) +
-  geom_line(group = 1) +
+year_summary %>% ggplot(aes(x = Release.Year, y = median_score)) +
+  geom_line(group = 1) + 
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-decade_summary %>% ggplot(aes(x = Decade_Group, y = avg_score)) +
+decade_summary %>% ggplot(aes(x = Decade_Group, y = median_score)) +
   geom_line(group = 1) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
@@ -174,12 +176,12 @@ unique(movies_summary_combined$Genre_Combined)
 genre_summary_avg_combined <- movies_summary_combined %>%
   group_by(Release.Year, Genre_Combined) %>%
   summarise(
-    avg_score = median(score, na.rm = TRUE)
+    median_score = median(score, na.rm = TRUE)
   )
 
 # Plot the average score for each combined genre over the years
 genre_summary_avg_combined %>%
-  ggplot(aes(x = Release.Year, y = avg_score, color = Genre_Combined, group = Genre_Combined)) +
+  ggplot(aes(x = Release.Year, y = median_score, color = Genre_Combined, group = Genre_Combined)) +
   geom_line() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   labs(title = "Average Score for Each Combined Genre Over the Years",
@@ -189,12 +191,12 @@ genre_summary_avg_combined %>%
 genre_summary_avg_combined_decade <- movies_summary_combined %>%
   group_by(Decade_Group, Genre_Combined) %>%
   summarise(
-    avg_score = mean(score, na.rm = TRUE)
+    median_score = median(score, na.rm = TRUE)
   )
 
 # Plot the average score for each combined genre decade-wise
 genre_summary_avg_combined_decade %>%
-  ggplot(aes(x = Decade_Group, y = avg_score, color = Genre_Combined, group = Genre_Combined)) +
+  ggplot(aes(x = Decade_Group, y = median_score, color = Genre_Combined, group = Genre_Combined)) +
   geom_line() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   labs(title = "Average Score for Each Combined Genre Decade-wise",
@@ -218,14 +220,11 @@ genre_summary_avg_combined_filtered <- genre_movie_counts_filtered %>%
   left_join(movies_summary_combined, by = c("Release.Year", "Genre_Combined")) %>%
   group_by(Release.Year, Genre_Combined) %>%
   summarise(
-    avg_score = mean(score, na.rm = TRUE)
+    median_score = median(score, na.rm = TRUE)
   )
 
 # Plot the average score for each combined genre decade-wise
 genre_summary_avg_combined_filtered %>%
-  ggplot(aes(x = Release.Year, y = avg_score, color = Genre_Combined, group = Genre_Combined)) +
+  ggplot(aes(x = Release.Year, y = median_score, color = Genre_Combined, group = Genre_Combined)) +
   geom_line() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  labs(title = "Average Score for Each Combined Genre (Years with >= 4 movies)",
-       x = "Release Year", y = "Average Score")
-
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
