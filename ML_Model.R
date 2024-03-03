@@ -38,7 +38,7 @@ df = movies.labeled %>% select(formality, text)
 ###########################################################################
 #ML-Model Training
 corpus.training <- corpus(df)
-docvars(corpus) %>% as.data.frame() %>% group_by(formality) %>% summarize(n=n())
+docvars(corpus.training) %>% as.data.frame() %>% group_by(formality) %>% summarize(n=n())
 
 dfm.training <- dfm(corpus.training, stem = T, remove_punct=T, remove_symbols = T, remove_numbers = T)
 
@@ -46,7 +46,7 @@ total_sample_size = nrow(df)
 set.seed(300) #Makes our results replicable
 id_train <- sample(1:total_sample_size, total_sample_size * 0.8, replace = FALSE)
 
-dfm$id_numeric <- 1:ndoc(dfm.training)
+dfm.training$id_numeric <- 1:ndoc(dfm.training)
 
 #Creating training and test set
 dfm_train <- dfm_subset(dfm.training, id_numeric %in% id_train) 
@@ -63,8 +63,8 @@ summary(review_model)
 #make predictions on the test set
 prediction.training <- predict(review_model,dfm_test)
 dfm_correct.training <- dfm_match(dfm_test, features = featnames(dfm_train))
-correct.training <- dfm_correct$formality
-tab_class <- table(correct, prediction)
+correct.training <- dfm_correct.training$formality
+tab_class <- table(correct.training, prediction.training)
 tab_class
 confusionMatrix(tab_class, mode = "prec_recall")
 
@@ -78,7 +78,7 @@ dfm.movies <- dfm(corpus.movies, stem = T, remove_punct=T,
 
 predictions_movies <- predict(review_model, newdata = dfm.movies)
 
-movies$predicted_label <- predictions_movies
+movies$formality <- predictions_movies
 
 # Tidying up the df
 movies$Release.Year = str_replace(movies$Release.Year, "/.*", "")
@@ -98,12 +98,13 @@ movies <- movies %>%
 movies <- movies %>%
   tidyr::unnest(Genre)
 
+##################################################################
 # Analysis
 movies_summary <- movies %>%
   group_by(Movie.ID, Movie.Title, Release.Year, Genre) %>%
   summarise(num_convs = n(),
-            num_formal = sum(predicted_label == "formal"),
-            num_informal = sum(predicted_label == "informal"),
+            num_formal = sum(formality == "formal"),
+            num_informal = sum(formality == "informal"),
             score = ((num_formal + 1) / (num_informal + 1)) / num_convs) %>%
   filter(num_convs >= 20)
   
@@ -148,13 +149,83 @@ genre_summary %>%
   filter(Genre %in% genres) %>%
   ggplot(aes(x = Release.Year, y = perc_of_total, color = Genre, group = Genre)) +
   geom_line() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  labs(title = "Percentage of Drama and Crime Movies Released Each Year",
-       x = "Release Year", y = "Percentage of Total Movies")
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 
-year_genre_summary %>% ggplot(aes(x = Release.Year, y = avg_score)) +
-  geom_line(group = 1) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-decade_genre_summary %>% ggplot(aes(x = Decade_Group, y = avg_score)) +
-  geom_line(group = 1) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+# Combine genres into broader categories
+movies_summary_combined <- movies_summary %>%
+  mutate(Genre_Combined = case_when(
+    Genre %in% c("action", "adventure") ~ "Action/Adventure",
+    Genre %in% c("drama", "romance") ~ "Drama/Romance",
+    Genre %in% c("sci-fi", "fantasy") ~ "Sci-Fi/Fantasy",
+    Genre %in% c("crime", "mystery", "thriller") ~ "Crime/Mystery/Thriller",
+    Genre == "horror" ~ "Horror/Thriller",
+    Genre %in% c("musical", "music") ~ "Musical/Music",
+    Genre %in% c("biography", "documentary") ~ "Biography/Documentary",
+    Genre %in% c("animation", "family") ~ "Animation/Family",
+    Genre %in% c("history", "war") ~ "History/War",
+    TRUE ~ as.character(Genre)
+  ))
+
+# Check unique values in the combined genre category
+unique(movies_summary_combined$Genre_Combined)
+
+
+# Calculate average score for each combined genre in each year
+genre_summary_avg_combined <- movies_summary_combined %>%
+  group_by(Release.Year, Genre_Combined) %>%
+  summarise(
+    avg_score = mean(score, na.rm = TRUE)
+  )
+
+# Plot the average score for each combined genre over the years
+genre_summary_avg_combined %>%
+  ggplot(aes(x = Release.Year, y = avg_score, color = Genre_Combined, group = Genre_Combined)) +
+  geom_line() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  labs(title = "Average Score for Each Combined Genre Over the Years",
+       x = "Release Year", y = "Average Score")
+
+# Calculate average score for each combined genre in each decade
+genre_summary_avg_combined_decade <- movies_summary_combined %>%
+  group_by(Decade_Group, Genre_Combined) %>%
+  summarise(
+    avg_score = mean(score, na.rm = TRUE)
+  )
+
+# Plot the average score for each combined genre decade-wise
+genre_summary_avg_combined_decade %>%
+  ggplot(aes(x = Decade_Group, y = avg_score, color = Genre_Combined, group = Genre_Combined)) +
+  geom_line() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  labs(title = "Average Score for Each Combined Genre Decade-wise",
+       x = "Decade", y = "Average Score")
+
+
+# Calculate the number of movies released for each combined genre in each year
+genre_movie_counts <- movies_summary_combined %>%
+  group_by(Release.Year, Genre_Combined) %>%
+  summarise(
+    num_movies = n()
+  )
+
+# Filter out years where less than 4 movies were released for a genre
+genre_movie_counts_filtered <- genre_movie_counts %>%
+  group_by(Genre_Combined) %>%
+  filter(num_movies >= 4)
+
+# Join with the original data to get the scores for the filtered years
+genre_summary_avg_combined_filtered <- genre_movie_counts_filtered %>%
+  left_join(movies_summary_combined, by = c("Release.Year", "Genre_Combined")) %>%
+  group_by(Release.Year, Genre_Combined) %>%
+  summarise(
+    avg_score = mean(score, na.rm = TRUE)
+  )
+
+# Plot the average score for each combined genre decade-wise
+genre_summary_avg_combined_filtered %>%
+  ggplot(aes(x = Release.Year, y = avg_score, color = Genre_Combined, group = Genre_Combined)) +
+  geom_line() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  labs(title = "Average Score for Each Combined Genre (Years with >= 4 movies)",
+       x = "Release Year", y = "Average Score")
+
