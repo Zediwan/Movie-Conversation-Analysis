@@ -85,7 +85,7 @@ string_to_vector <- function(genre_string) {
 movies <- movies %>%
   mutate(Genre = lapply(Genre, string_to_vector))
 # Unnest the Genre column
-movies <- movies %>%
+movies.unnested <- movies %>%
   tidyr::unnest(Genre)
 
 ##################################################################
@@ -97,33 +97,44 @@ movies_summary <- movies %>%
             num_informal = sum(formality == "informal"),
             score = num_formal / num_convs) %>%
   filter(num_convs >= 20)
+
+movies_summary.unnested <- movies.unnested %>%
+  group_by(Movie.ID, Movie.Title, Release.Year, Genre) %>%
+  summarise(num_convs = n(),
+            num_formal = sum(formality == "formal"),
+            num_informal = sum(formality == "informal"),
+            score = num_formal / num_convs) %>%
+  filter(num_convs >= 20)
   
 # Extract the decade from the year
 movies_summary$Decade <- as.numeric(substr(movies_summary$Release.Year, 1, 3)) * 10
-
 # Group movies into 10-year intervals
 movies_summary$Decade_Group <- paste(movies_summary$Decade, "-", movies_summary$Decade + 9)
+min_num_movies_per_year = 7
+min_num_movies_per_decade = 20
 
-year_summary = movies_summary %>% group_by(Release.Year) %>% 
-  summarise(num_movies = n(), median_score = median(score, na.rm = T)) %>%
-  filter(num_movies > 20)
-
-decade_summary = movies_summary %>% group_by(Decade_Group) %>% 
-  summarise(num_movies = n(), median_score = median(score, na.rm = T)) %>%
-  filter(num_movies > 20)
-
-year_summary %>% ggplot(aes(x = Release.Year, y = median_score)) +
-  geom_line(group = 1) + 
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+movies_summary %>% 
+  group_by(Release.Year) %>% 
+  summarise(num_movies = n(), median_score = median(score, na.rm = TRUE)) %>%
+  filter(num_movies >= min_num_movies_per_year) %>%
+  ggplot(aes(x = Release.Year, y = median_score)) +
+  geom_line(group = 1) +
+  geom_smooth(aes(group = 1), method = "lm", se = FALSE, color = "red") +
+  scale_x_discrete(breaks = seq(1955, 2010, by = 5)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   labs(title = "Median Score of all Movies Over the Years", x = "Release Year", y = "Median Score")
 
-decade_summary %>% ggplot(aes(x = Decade_Group, y = median_score)) +
+movies_summary %>% group_by(Decade_Group) %>% 
+  summarise(num_movies = n(), median_score = median(score, na.rm = T)) %>%
+  filter(num_movies > min_num_movies_per_decade) %>% 
+  ggplot(aes(x = Decade_Group, y = median_score)) +
   geom_line(group = 1) +
+  geom_smooth(aes(group = 1), method = "lm", se = FALSE, color = "red") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
   labs(title = "Median Score of all Movies Decade-wise", x = "Release Year", y = "Median Score")
 
 # Combine genres into broader categories
-movies_summary_combined <- movies_summary %>%
+movies_summary_combined <- movies_summary.unnested %>%
   mutate(Genre_Combined = case_when(
     Genre %in% c("action", "adventure") ~ "Action/Adventure",
     Genre %in% c("drama", "romance") ~ "Drama/Romance",
@@ -135,14 +146,18 @@ movies_summary_combined <- movies_summary %>%
     Genre %in% c("animation", "family") ~ "Animation/Family",
     Genre %in% c("history", "war") ~ "History/War",
     TRUE ~ as.character(Genre)
-  ))
+  )) %>%
+  filter(!Genre_Combined %in% c("film-noir", "short", "adult", "sport", "western", "comedy"))
+
 
 # Check unique values in the combined genre category
 unique(movies_summary_combined$Genre_Combined)
 
+min_num_movies_per_year_per_category = 5
 # Calculate average score for each combined genre in each year
 genre_summary_avg_combined <- movies_summary_combined %>%
   group_by(Release.Year, Genre_Combined) %>%
+  filter(n() >= min_num_movies_per_year_per_category) %>%
   summarise(
     median_score = median(score, na.rm = TRUE)
   )
@@ -152,50 +167,7 @@ genre_summary_avg_combined %>%
   ggplot(aes(x = Release.Year, y = median_score, color = Genre_Combined, group = Genre_Combined)) +
   geom_line() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  labs(title = "Median Score for Each Combined Genre Over the Years",
+  scale_y_continuous(limits = c(0, 0.15)) +
+  scale_x_discrete(breaks = seq(1955, 2010, by = 5)) +
+  labs(title = "Median Score for Each Combined Genre Over the Years \nwith at least 5 movies per category per year",
        x = "Release Year", y = "Median Score")
-
-# Calculate average score for each combined genre in each decade
-genre_summary_avg_combined_decade <- movies_summary_combined %>%
-  group_by(Decade_Group, Genre_Combined) %>%
-  summarise(
-    median_score = median(score, na.rm = TRUE)
-  )
-
-# Plot the average score for each combined genre decade-wise
-genre_summary_avg_combined_decade %>%
-  ggplot(aes(x = Decade_Group, y = median_score, color = Genre_Combined, group = Genre_Combined)) +
-  geom_line() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  labs(title = "Median Score for Each Combined Genre Decade-wise",
-       x = "Decade", y = "Median Score")
-
-
-# Calculate the number of movies released for each combined genre in each year
-genre_movie_counts <- movies_summary_combined %>%
-  group_by(Release.Year, Genre_Combined) %>%
-  summarise(
-    num_movies = n()
-  )
-
-# Filter out years where less than 4 movies were released for a genre
-genre_movie_counts_filtered <- genre_movie_counts %>%
-  group_by(Genre_Combined) %>%
-  filter(num_movies >= 4)
-
-# Join with the original data to get the scores for the filtered years
-genre_summary_avg_combined_filtered <- genre_movie_counts_filtered %>%
-  left_join(movies_summary_combined, by = c("Release.Year", "Genre_Combined")) %>%
-  group_by(Release.Year, Genre_Combined) %>%
-  summarise(
-    median_score = median(score, na.rm = TRUE)
-  )
-
-# Plot the average score for each combined genre over the years
-genre_summary_avg_combined_filtered %>%
-  ggplot(aes(x = Release.Year, y = median_score, color = Genre_Combined, group = Genre_Combined)) +
-  geom_line() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  labs(title = "Median Score for Each Combined Genre Over the Years \nwith at least 4 movies per genre per year",
-       x = "Release Year", y = "Median Score")
-
