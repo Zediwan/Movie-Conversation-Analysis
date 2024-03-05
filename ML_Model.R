@@ -10,39 +10,29 @@ library(plotly)
 library(Rcpp)
 library(caret)
 
-#Data preperation
+#Data preparation
 movies.labeled = read.csv("data/movie_formality_labled.csv") %>% select(-X) %>% rename(formality = Formal.Informal, text = Text)
 movies = read.csv("data/movie_formality_unlabled.csv") %>% select(-X, -X.1) %>% rename(formality = Formal.Informal, text = Text)
+load("data/hansard.RData") 
+hansard = hansard %>% select(text = speech)
+hansard$formality = "formal"
+reddit = read.csv("data/reddit_ask.csv") %>% select(Text) %>% mutate(formality = "informal") %>% rename(text = Text)
 
-df = movies.labeled %>% select(formality, text)
+smallest_df = min(nrow(hansard), nrow(reddit))
+reddit = reddit %>% head(smallest_df)
+hansard = hansard %>% head(smallest_df)
 
-# Spliting labeled set into training and testing set
-#train_proportion <- 0.8  # 80% for training, 20% for testing
-#set.seed(123)
-
-# Create a stratified random split based on the 'formality' label
-#train_indices <- createDataPartition(df$formality, p = train_proportion, list = FALSE)
-
-# Split the data into training and testing sets using the indices
-#train_set <- df[train_indices, ]
-#test_set <- df[-train_indices, ]
-
-# Check the class distribution in both sets
-#table(train_set$formality)
-#table(test_set$formality)
-
-# Shuffle both sets
-#train_set <- train_set[sample(nrow(train_set)), ]
-#test_set <- test_set[sample(nrow(test_set)), ]
+df.training = movies.labeled %>% select(formality, text)
+df.training = rbind(df.training, hansard, reddit)
 
 ###########################################################################
 #ML-Model Training
-corpus.training <- corpus(df)
+corpus.training <- corpus(df.training)
 docvars(corpus.training) %>% as.data.frame() %>% group_by(formality) %>% summarize(n=n())
 
 dfm.training <- dfm(corpus.training, stem = T, remove_punct=T, remove_symbols = T, remove_numbers = T)
 
-total_sample_size = nrow(df)
+total_sample_size = nrow(df.training)
 set.seed(300) #Makes our results replicable
 id_train <- sample(1:total_sample_size, total_sample_size * 0.8, replace = FALSE)
 
@@ -124,34 +114,13 @@ decade_summary = movies_summary %>% group_by(Decade_Group) %>%
 
 year_summary %>% ggplot(aes(x = Release.Year, y = median_score)) +
   geom_line(group = 1) + 
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  labs(title = "Median Score of all Movies Over the Years", x = "Release Year", y = "Median Score")
+
 decade_summary %>% ggplot(aes(x = Decade_Group, y = median_score)) +
   geom_line(group = 1) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-
-genre_summary <- movies_summary %>%
-  group_by(Release.Year, Genre) %>%
-  summarise(
-    num_movies = n(),
-    median_score = median(score, na.rm = TRUE)
-  )
-
-genre_totals <- genre_summary %>%
-  group_by(Release.Year) %>%
-  summarise(total_movies = sum(num_movies))
-
-genre_summary <- genre_summary %>%
-  left_join(genre_totals, by = "Release.Year") %>%
-  mutate(perc_of_total = (num_movies / total_movies) * 100)
-
-genres = c("war", "sport")
-genres <- unique(genre_summary$Genre)
-
-genre_summary %>%
-  filter(Genre %in% genres) %>%
-  ggplot(aes(x = Release.Year, y = perc_of_total, color = Genre, group = Genre)) +
-  geom_line() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  labs(title = "Median Score of all Movies Decade-wise", x = "Release Year", y = "Median Score")
 
 # Combine genres into broader categories
 movies_summary_combined <- movies_summary %>%
@@ -171,7 +140,6 @@ movies_summary_combined <- movies_summary %>%
 # Check unique values in the combined genre category
 unique(movies_summary_combined$Genre_Combined)
 
-
 # Calculate average score for each combined genre in each year
 genre_summary_avg_combined <- movies_summary_combined %>%
   group_by(Release.Year, Genre_Combined) %>%
@@ -184,8 +152,8 @@ genre_summary_avg_combined %>%
   ggplot(aes(x = Release.Year, y = median_score, color = Genre_Combined, group = Genre_Combined)) +
   geom_line() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  labs(title = "Average Score for Each Combined Genre Over the Years",
-       x = "Release Year", y = "Average Score")
+  labs(title = "Median Score for Each Combined Genre Over the Years",
+       x = "Release Year", y = "Median Score")
 
 # Calculate average score for each combined genre in each decade
 genre_summary_avg_combined_decade <- movies_summary_combined %>%
@@ -199,8 +167,8 @@ genre_summary_avg_combined_decade %>%
   ggplot(aes(x = Decade_Group, y = median_score, color = Genre_Combined, group = Genre_Combined)) +
   geom_line() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  labs(title = "Average Score for Each Combined Genre Decade-wise",
-       x = "Decade", y = "Average Score")
+  labs(title = "Median Score for Each Combined Genre Decade-wise",
+       x = "Decade", y = "Median Score")
 
 
 # Calculate the number of movies released for each combined genre in each year
@@ -223,8 +191,11 @@ genre_summary_avg_combined_filtered <- genre_movie_counts_filtered %>%
     median_score = median(score, na.rm = TRUE)
   )
 
-# Plot the average score for each combined genre decade-wise
+# Plot the average score for each combined genre over the years
 genre_summary_avg_combined_filtered %>%
   ggplot(aes(x = Release.Year, y = median_score, color = Genre_Combined, group = Genre_Combined)) +
   geom_line() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  labs(title = "Median Score for Each Combined Genre Over the Years \nwith at least 4 movies per genre per year",
+       x = "Release Year", y = "Median Score")
+
