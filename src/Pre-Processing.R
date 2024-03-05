@@ -2,7 +2,7 @@ library(tidyverse)
 library(quanteda)
 library(dplyr)
 
-subreddit = "feminism"
+subreddit = "ask"
 link = str_c("data/big_reddit_", subreddit)
 filename = str_c (link, ".csv")
 
