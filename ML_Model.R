@@ -98,6 +98,17 @@ movies_summary <- movies %>%
             score = num_formal / num_convs) %>%
   filter(num_convs >= 20)
 
+#Analyzing the distribution of the formality score
+score_distribution <- ggplot(movies_summary, aes(x = score)) +
+                      geom_histogram(color = "black") +
+                      ggtitle("Formaility Score Distribution") +
+                      xlab("Formality Score") +
+                      ylab("count")
+score_distribution
+
+print(mean(movies_summary$score))
+print(median(movies_summary$score))
+
 movies_summary.unnested <- movies.unnested %>%
   group_by(Movie.ID, Movie.Title, Release.Year, Genre) %>%
   summarise(num_convs = n(),
@@ -105,7 +116,7 @@ movies_summary.unnested <- movies.unnested %>%
             num_informal = sum(formality == "informal"),
             score = num_formal / num_convs) %>%
   filter(num_convs >= 20)
-  
+
 # Extract the decade from the year
 movies_summary$Decade <- as.numeric(substr(movies_summary$Release.Year, 1, 3)) * 10
 # Group movies into 10-year intervals
@@ -113,6 +124,7 @@ movies_summary$Decade_Group <- paste(movies_summary$Decade, "-", movies_summary$
 min_num_movies_per_year = 7
 min_num_movies_per_decade = 20
 
+#Plotting Median Score of all Movies Over the Years
 movies_summary %>% 
   group_by(Release.Year) %>% 
   summarise(num_movies = n(), median_score = median(score, na.rm = TRUE)) %>%
@@ -124,6 +136,7 @@ movies_summary %>%
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   labs(title = "Median Score of all Movies Over the Years", x = "Release Year", y = "Median Score")
 
+#Plotting Median Score of all Movies Decade-wise
 movies_summary %>% group_by(Decade_Group) %>% 
   summarise(num_movies = n(), median_score = median(score, na.rm = T)) %>%
   filter(num_movies > min_num_movies_per_decade) %>% 
